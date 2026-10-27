@@ -27,6 +27,7 @@ from pathdemo.sources import (
     WebcamSource,
 )
 from pathdemo.telemetry import TelemetryLogger
+from pathdemo.video_exporter import process_and_export_video, VideoBatchExportResult
 
 # Page configuration
 st.set_page_config(
@@ -86,6 +87,8 @@ def init_session_state() -> None:
         st.session_state.history = deque(maxlen=80)
     if "status_message" not in st.session_state:
         st.session_state.status_message = "Ready."
+    if "batch_result" not in st.session_state:
+        st.session_state.batch_result = None
 
 
 init_session_state()
@@ -136,6 +139,11 @@ if input_mode == "Synthetic Demo":
         )
 elif input_mode == "Video File":
     st.sidebar.markdown("### 📁 Video Source")
+    video_mode = st.sidebar.radio(
+        "Processing Mode",
+        options=["Real-Time Playback & Tuning", "Export Full Videos & Frame Inspector"],
+        help="Real-Time streams frame-by-frame; Export generates full MP4 videos with an interactive frame inspector scrubber.",
+    )
     video_input_type = st.sidebar.radio("File Selection", ["Existing Video", "Upload New Video (S22)"])
     
     existing_videos = list(Path("data/input_videos").glob("*.*"))
@@ -165,6 +173,7 @@ elif input_mode == "Video File":
             video_path_to_use = save_dest
             st.sidebar.success(f"Saved: {uploaded_file.name}")
 else:
+    video_mode = "Real-Time Playback & Tuning"
     webcam_idx = st.sidebar.number_input("Webcam Device Index", min_value=0, max_value=5, value=0, step=1)
 
 # Perception Tuning (Sliders)
@@ -268,7 +277,13 @@ st.markdown(
 # Playback controls
 ctrl_col1, ctrl_col2, ctrl_col3, ctrl_col4 = st.columns([1, 1, 1, 3])
 
-if input_mode != "Synthetic Demo" or (input_mode == "Synthetic Demo" and synthetic_submode == "Streaming Sequence"):
+show_playback_controls = (
+    (input_mode == "Synthetic Demo" and synthetic_submode == "Streaming Sequence")
+    or (input_mode == "Video File" and video_mode == "Real-Time Playback & Tuning")
+    or (input_mode == "Webcam")
+)
+
+if show_playback_controls:
     if st.session_state.is_playing:
         if ctrl_col1.button("⏸️ Pause", width="stretch"):
             st.session_state.is_playing = False
@@ -435,7 +450,146 @@ def render_pipeline_output(result: PipelineResult, status_note: str) -> None:
 
 
 # Frame Execution Logic
-if source is None or not source.is_opened:
+if input_mode == "Video File" and video_mode == "Export Full Videos & Frame Inspector":
+    if video_path_to_use is None or not video_path_to_use.exists():
+        st.info("Please select or upload a video file in the sidebar to export.")
+    else:
+        st.markdown(f"### 🎬 Batch Video Processing & Frame Inspector: `{video_path_to_use.name}`")
+        
+        # Display video metadata
+        temp_cap = cv2.VideoCapture(str(video_path_to_use))
+        total_f = int(temp_cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        v_fps = float(temp_cap.get(cv2.CAP_PROP_FPS)) or 30.0
+        v_w = int(temp_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        v_h = int(temp_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        temp_cap.release()
+        
+        info_c1, info_c2, info_c3, info_c4 = st.columns(4)
+        info_c1.metric("Total Frames", total_f)
+        info_c2.metric("Frame Rate", f"{v_fps:.1f} FPS")
+        info_c3.metric("Resolution", f"{v_w}x{v_h}")
+        info_c4.metric("Duration", f"{(total_f/v_fps):.1f} s" if v_fps > 0 else "0s")
+        
+        if st.button("🚀 Process Video & Generate Export Clips", type="primary", width="stretch"):
+            prog_bar = st.progress(0.0)
+            status_box = st.empty()
+            
+            def on_progress(frac, cur, total):
+                prog_bar.progress(frac)
+                status_box.markdown(f"**Processing frame {cur}/{total} ({int(frac*100)}%)...**")
+            
+            with st.spinner("Executing CV pipeline across all frames..."):
+                batch_res = process_and_export_video(
+                    video_path=video_path_to_use,
+                    output_dir="results",
+                    config=st.session_state.config,
+                    progress_callback=on_progress,
+                )
+                st.session_state.batch_result = batch_res
+                status_box.success(f"✅ Video processing complete! Generated videos and telemetry for {batch_res.total_frames} frames.")
+                st.rerun()
+
+        # Display exported videos and frame inspector if batch_result is ready
+        batch_res: Optional[VideoBatchExportResult] = st.session_state.batch_result
+        if batch_res is not None and batch_res.input_path == video_path_to_use:
+            st.markdown("---")
+            st.markdown("### 📽️ Generated Video Clips")
+            
+            v_tab1, v_tab2, v_tab3 = st.tabs([
+                "🔀 Side-by-Side Comparison",
+                "🚗 Annotated Road Video",
+                "🎭 Segmentation Mask Video",
+            ])
+            
+            with v_tab1:
+                st.video(str(batch_res.side_by_side_video_path))
+                with open(batch_res.side_by_side_video_path, "rb") as f:
+                    st.download_button(
+                        "⬇️ Download Side-by-Side MP4",
+                        data=f.read(),
+                        file_name=batch_res.side_by_side_video_path.name,
+                        mime="video/mp4",
+                    )
+
+            with v_tab2:
+                st.video(str(batch_res.annotated_video_path))
+                with open(batch_res.annotated_video_path, "rb") as f:
+                    st.download_button(
+                        "⬇️ Download Annotated MP4",
+                        data=f.read(),
+                        file_name=batch_res.annotated_video_path.name,
+                        mime="video/mp4",
+                    )
+
+            with v_tab3:
+                st.video(str(batch_res.mask_video_path))
+                with open(batch_res.mask_video_path, "rb") as f:
+                    st.download_button(
+                        "⬇️ Download Mask MP4",
+                        data=f.read(),
+                        file_name=batch_res.mask_video_path.name,
+                        mime="video/mp4",
+                    )
+
+            st.markdown("---")
+            st.markdown("### 🔍 Interactive Frame Inspector & Telemetry")
+            st.caption("Drag the slider to inspect any specific frame's visual overlays, centroid, steering decision, and telemetry log.")
+            
+            selected_frame_idx = st.slider(
+                "Select Frame Index",
+                min_value=1,
+                max_value=batch_res.total_frames,
+                value=1,
+                step=1,
+            )
+            
+            # Fetch and process the selected frame
+            f_cap = cv2.VideoCapture(str(batch_res.input_path))
+            f_cap.set(cv2.CAP_PROP_POS_FRAMES, selected_frame_idx - 1)
+            f_ret, f_frame = f_cap.read()
+            f_cap.release()
+            
+            if f_ret and f_frame is not None:
+                single_res = st.session_state.pipeline.process_frame(
+                    f_frame, source_name=f"{batch_res.input_path.name}_frame_{selected_frame_idx}"
+                )
+                
+                # Show 3 image columns
+                f_col1, f_col2, f_col3 = st.columns(3)
+                with f_col1:
+                    st.markdown("**Annotated Road View**")
+                    st.image(cv2.cvtColor(single_res.annotated_frame, cv2.COLOR_BGR2RGB), width="stretch")
+                with f_col2:
+                    st.markdown("**Segmentation Mask**")
+                    st.image(single_res.mask, width="stretch", clamp=True)
+                with f_col3:
+                    st.markdown("**Raw Frame**")
+                    st.image(cv2.cvtColor(single_res.original_frame, cv2.COLOR_BGR2RGB), width="stretch")
+
+                # Frame metrics
+                rec = batch_res.records[selected_frame_idx - 1] if selected_frame_idx <= len(batch_res.records) else None
+                m1, m2, m3, m4, m5 = st.columns(5)
+                m1.metric("Frame", f"{selected_frame_idx} / {batch_res.total_frames}")
+                m2.metric("Timestamp", f"{rec['timestamp_sec']:.2f} s" if rec else "--")
+                m3.metric("State", single_res.decision.state)
+                m4.metric("Lateral Error", f"{single_res.perception.normalized_error:+.3f}")
+                m5.metric("Simulated PWM (L / R)", f"{single_res.decision.left_pwm} / {single_res.decision.right_pwm}")
+            
+            st.markdown("---")
+            st.markdown("### 📊 Complete Video Telemetry Log")
+            df_batch = pd.DataFrame(batch_res.records)
+            st.dataframe(df_batch, width="stretch", height=280)
+            
+            if batch_res.csv_log_path.exists():
+                with open(batch_res.csv_log_path, "r", encoding="utf-8") as f_csv:
+                    st.download_button(
+                        "📥 Download Telemetry CSV Log",
+                        data=f_csv.read(),
+                        file_name=batch_res.csv_log_path.name,
+                        mime="text/csv",
+                    )
+
+elif source is None or not source.is_opened:
     st.warning("⚠️ Selected source is currently unavailable or unconfigured.")
     if input_mode == "Webcam":
         st.error(

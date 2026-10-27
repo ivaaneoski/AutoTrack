@@ -20,6 +20,10 @@ data/input_videos/*
 results/logs/*
 !results/logs/.gitkeep
 
+# Exported batch videos (keep directory via .gitkeep)
+results/exported_videos/*
+!results/exported_videos/.gitkeep
+
 # Local user/system files
 .DS_Store
 Thumbs.db
