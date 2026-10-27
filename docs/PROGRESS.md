@@ -8,7 +8,7 @@ Project: Camera-Based Path Following + Live Dashboard (Review-I Software Prototy
 | :--- | :--- | :--- | :--- |
 | **Phase 0** | Inspect environment & scaffold modular structure | **COMPLETE** | Python 3.11.4 64-bit, OpenCV 5.0.0, NumPy 2.4.6, Streamlit 1.66.1 installed in `.venv`. Config loading & validation verified with 4 passing pytest tests. Git initialized. |
 | **Phase 1** | Synthetic frames & OpenCV HSV path perception | **COMPLETE** | Synthetic generators implemented (straight, curve left/right, offset, noisy, missing). OpenCV HSV color pipeline and moment analysis passing 16 pytest tests. Output figures saved to `results/figures/`. |
-| **Phase 2** | PD Steering controller & end-to-end pipeline | Pending | Proportional/PD steering, state machine (`STRAIGHT`, `LEFT`, `RIGHT`, `PATH_LOST`, `STOP`), bounds `[0, 255]`. |
+| **Phase 2** | PD Steering controller & end-to-end pipeline | **COMPLETE** | Proportional/PD steering controller with differential PWM mixing `[0, 255]`, state transitions (`STRAIGHT`, `LEFT`, `RIGHT`, `PATH_LOST`), monotonic timer benchmarking, and CSV telemetry logger. Passing 25 tests. |
 | **Phase 3** | Interactive Streamlit dashboard (Synthetic mode) | Pending | Full dashboard with live sliders, visualizer, telemetry cards, and CSV logger. |
 | **Phase 4** | Recorded video (Samsung S22 workflow) & Webcam source | Pending | Video upload/selection, codec compatibility handling, clean release of capture resources, webcam fallback. |
 | **Phase 5** | Acceptance testing, real output captures & documentation | Pending | Pytest suite pass, genuine screenshots saved, README and review explainer complete. |
