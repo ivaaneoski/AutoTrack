@@ -1,0 +1,39 @@
+# Default Configuration for Autonomous Path Following Prototype
+
+# Perception parameters (HSV color segmentation and contour filtering)
+perception:
+  # Yellow tape default HSV ranges (OpenCV H: 0-179, S: 0-255, V: 0-255)
+  hsv_lower: [18, 70, 70]
+  hsv_upper: [38, 255, 255]
+  
+  # Morphological noise filtering kernel size
+  morph_kernel_size: 5
+  
+  # Region of Interest (ROI) relative to frame height (0.0 to 1.0)
+  # Analyzes the road/path ahead immediately in front of the vehicle
+  roi_top_fraction: 0.50
+  roi_bottom_fraction: 1.00
+  
+  # Minimum contour area (in pixels) within ROI to accept as a valid path
+  min_contour_area: 400
+
+# Steering Controller parameters (Pure Python PD Controller)
+controller:
+  # Proportional and Derivative gains
+  kp: 140.0
+  kd: 35.0
+  
+  # Steering deadband: normalized errors within [-deadband, +deadband] are treated as straight
+  deadband: 0.05
+  
+  # Base driving speed (simulation PWM baseline, 0 to 255)
+  base_speed: 140
+  
+  # Maximum allowable PWM (0 to 255)
+  max_pwm: 255
+  min_pwm: 0
+
+# Telemetry and logging
+telemetry:
+  log_dir: "results/logs"
+  save_csv: true

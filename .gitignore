@@ -1,0 +1,26 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Streamlit
+.streamlit/
+
+# User data and input videos (keep directory via .gitkeep)
+data/input_videos/*
+!data/input_videos/.gitkeep
+
+# CSV logs (keep directory via .gitkeep)
+results/logs/*
+!results/logs/.gitkeep
+
+# Local user/system files
+.DS_Store
+Thumbs.db
+*.log
