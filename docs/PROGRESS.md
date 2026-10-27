@@ -7,7 +7,7 @@ Project: Camera-Based Path Following + Live Dashboard (Review-I Software Prototy
 | Phase | Description | Status | Evidence / Notes |
 | :--- | :--- | :--- | :--- |
 | **Phase 0** | Inspect environment & scaffold modular structure | **COMPLETE** | Python 3.11.4 64-bit, OpenCV 5.0.0, NumPy 2.4.6, Streamlit 1.66.1 installed in `.venv`. Config loading & validation verified with 4 passing pytest tests. Git initialized. |
-| **Phase 1** | Synthetic frames & OpenCV HSV path perception | Pending | Test cases: straight, curved, offset left/right, noisy, missing path. Visual frames saved to `results/figures/`. |
+| **Phase 1** | Synthetic frames & OpenCV HSV path perception | **COMPLETE** | Synthetic generators implemented (straight, curve left/right, offset, noisy, missing). OpenCV HSV color pipeline and moment analysis passing 16 pytest tests. Output figures saved to `results/figures/`. |
 | **Phase 2** | PD Steering controller & end-to-end pipeline | Pending | Proportional/PD steering, state machine (`STRAIGHT`, `LEFT`, `RIGHT`, `PATH_LOST`, `STOP`), bounds `[0, 255]`. |
 | **Phase 3** | Interactive Streamlit dashboard (Synthetic mode) | Pending | Full dashboard with live sliders, visualizer, telemetry cards, and CSV logger. |
 | **Phase 4** | Recorded video (Samsung S22 workflow) & Webcam source | Pending | Video upload/selection, codec compatibility handling, clean release of capture resources, webcam fallback. |
